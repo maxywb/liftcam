@@ -1,0 +1,71 @@
+#!/usr/bin/python
+import cv, Queue, copy, sys
+FPS = 15
+capture = None
+writer = None
+frames = list()
+delay = 0
+numFrames = 0
+outputname = None
+
+def resizeList(l, size, fill_with=None):
+    l += [fill_with]*(size-len(l))
+#resizeList
+
+def doRecord(frame):
+    global writer
+    if writer is None:
+        writer=cv.CreateVideoWriter(outputname, 0, 15, cv.GetSize(frame), 1)    
+    cv.WriteFrame(writer, frame)
+# doRecord
+
+def grabImg(record):
+    frames.pop(0)
+    orig = cv.QueryFrame(capture)
+    new = cv.CreateImage(cv.GetSize(orig),8,3)
+    cv.Copy(orig,new)
+    frames.append(new)
+    if(record):
+        doRecord(orig)
+#grabImg
+def doCapture(record):
+    for i in range(0,1*FPS):
+        grabImg(record)
+    while True:
+        grabImg(record)
+        ptr = (120-delay)*FPS-1
+        if ptr < 0: ptr = 0
+        image = frames[ptr]
+        if image:
+            cv.ShowImage('LiftCam',image)
+        key = cv.WaitKey(1)
+        if key == 1048603:
+            return
+#doCapture
+
+def handleTrackbar(arg):
+    global delay
+    delay = cv.GetTrackbarPos('delay','LiftCam')
+#handleTrackbar
+
+if __name__ == '__main__':
+    record = False
+    if len(sys.argv) >= 3:
+        FPS = int(sys.argv[1])
+        if len(sys.argv) > 3:
+            record = True
+            outputname = str(sys.argv[3])
+        if sys.argv[2] == "cam":
+            capture=cv.CaptureFromCAM(0)
+        else:
+            print "opening",sys.argv[2]
+            capture=cv.CaptureFromFile(str(sys.argv[2]))
+            print "opened"
+    else:
+        print "not enough args"
+        sys.exit()
+    cv.NamedWindow('LiftCam',cv.CV_WINDOW_AUTOSIZE)
+    cv.CreateTrackbar('delay','LiftCam',0,120,handleTrackbar)
+    resizeList(frames,120*FPS)
+    doCapture(record)
+    cv.DestroyAllWindows()
